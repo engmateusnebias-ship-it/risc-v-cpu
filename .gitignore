@@ -1,0 +1,16 @@
+*.log
+*.vcd
+*.out
+*.bin
+*.elf
+*.hex
+*.jou
+*.str
+*.pb
+*.bit
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.vscode/
