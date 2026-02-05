@@ -22,7 +22,6 @@ architecture Behavioral of decoder is
 begin
     process(opcode, funct3, funct7)
     begin
-        -- valores padrão
         alu_op     <= "0000";
         reg_write  <= '0';
         mem_read   <= '0';
@@ -33,25 +32,45 @@ begin
         jump       <= '0';
 
         case opcode is
-            when "0110011" =>  -- R-type (ex: ADD, SUB)
-                reg_write  <= '1';
-                alu_src    <= '0';
+            when "0110011" =>  -- R-type
+                reg_write <= '1';
+                alu_src   <= '0';
                 case funct3 is
                     when "000" =>
-                        if funct7 = "0000000" then
-                            alu_op <= "0000"; -- ADD
-                        elsif funct7 = "0100000" then
-                            alu_op <= "0001"; -- SUB
+                        if funct7 = "0000000" then alu_op <= "0000"; -- ADD
+                        elsif funct7 = "0100000" then alu_op <= "0001"; -- SUB
+                        else alu_op <= "1111";
                         end if;
-                    when others =>
-                        alu_op <= "1111"; -- undefined
+                    when "111" => alu_op <= "1010"; -- AND
+                    when "110" => alu_op <= "1001"; -- OR
+                    when "100" => alu_op <= "0110"; -- XOR
+                    when "010" => alu_op <= "0100"; -- SLT
+                    when "011" => alu_op <= "0101"; -- SLTU
+                    when "001" => alu_op <= "0011"; -- SLL
+                    when "101" =>
+                        if funct7 = "0000000" then alu_op <= "0111"; -- SRL
+                        elsif funct7 = "0100000" then alu_op <= "1000"; -- SRA
+                        else alu_op <= "1111";
+                        end if;
+                    when others => alu_op <= "1111";
                 end case;
 
-            when "0010011" =>  -- I-type (ex: ADDI)
-                reg_write  <= '1';
-                alu_src    <= '1';
+            when "0010011" =>  -- I-type
+                reg_write <= '1';
+                alu_src   <= '1';
                 case funct3 is
                     when "000" => alu_op <= "0000"; -- ADDI
+                    when "111" => alu_op <= "1010"; -- ANDI
+                    when "110" => alu_op <= "1001"; -- ORI
+                    when "100" => alu_op <= "0110"; -- XORI
+                    when "010" => alu_op <= "0100"; -- SLTI
+                    when "011" => alu_op <= "0101"; -- SLTIU
+                    when "001" => alu_op <= "0011"; -- SLLI
+                    when "101" =>
+                        if funct7 = "0000000" then alu_op <= "0111"; -- SRLI
+                        elsif funct7 = "0100000" then alu_op <= "1000"; -- SRAI
+                        else alu_op <= "1111";
+                        end if;
                     when others => alu_op <= "1111";
                 end case;
 
@@ -71,7 +90,7 @@ begin
                 branch     <= '1';
                 alu_src    <= '0';
                 case funct3 is
-                    when "000" => alu_op <= "0001"; -- SUB (for BEQ)
+                    when "000" => alu_op <= "0001"; -- SUB for BEQ
                     when others => alu_op <= "1111";
                 end case;
 
@@ -81,10 +100,9 @@ begin
 
             when "0110111" =>  -- LUI
                 reg_write  <= '1';
-                alu_op     <= "0010"; -- LUI (load upper immediate)
+                alu_op     <= "0010"; -- LUI
 
             when others =>
-                -- instrução inválida
                 alu_op <= "1111";
         end case;
     end process;
