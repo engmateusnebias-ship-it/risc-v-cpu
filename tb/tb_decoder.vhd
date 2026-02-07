@@ -5,9 +5,9 @@ entity tb_decoder is
 end tb_decoder;
 
 architecture sim of tb_decoder is
-    signal opcode     : std_logic_vector(6 downto 0);
-    signal funct3     : std_logic_vector(2 downto 0);
-    signal funct7     : std_logic_vector(6 downto 0);
+    constant clk_period : time := 10 ns;
+
+    signal instr      : std_logic_vector(31 downto 0);
     signal alu_op     : std_logic_vector(3 downto 0);
     signal reg_write  : std_logic;
     signal mem_read   : std_logic;
@@ -19,9 +19,7 @@ architecture sim of tb_decoder is
 
     component decoder
         Port (
-            opcode     : in  std_logic_vector(6 downto 0);
-            funct3     : in  std_logic_vector(2 downto 0);
-            funct7     : in  std_logic_vector(6 downto 0);
+            instr      : in  std_logic_vector(31 downto 0);
             alu_op     : out std_logic_vector(3 downto 0);
             reg_write  : out std_logic;
             mem_read   : out std_logic;
@@ -35,9 +33,7 @@ architecture sim of tb_decoder is
 begin
     uut: decoder
         port map (
-            opcode     => opcode,
-            funct3     => funct3,
-            funct7     => funct7,
+            instr      => instr,
             alu_op     => alu_op,
             reg_write  => reg_write,
             mem_read   => mem_read,
@@ -50,16 +46,57 @@ begin
 
     stimulus: process
     begin
-        -- Teste: AND
-        opcode <= "0110011"; funct3 <= "111"; funct7 <= "0000000"; wait for 10 ns;
-        -- Teste: ORI
-        opcode <= "0010011"; funct3 <= "110"; funct7 <= "0000000"; wait for 10 ns;
-        -- Teste: SLL
-        opcode <= "0110011"; funct3 <= "001"; funct7 <= "0000000"; wait for 10 ns;
-        -- Teste: SRLI
-        opcode <= "0010011"; funct3 <= "101"; funct7 <= "0000000"; wait for 10 ns;
-        -- Teste: SRA
-        opcode <= "0110011"; funct3 <= "101"; funct7 <= "0100000"; wait for 10 ns;
+        -- AND (R-type)
+        instr <= x"00F777B3"; wait for clk_period;
+        assert alu_op = "1010" and reg_write = '1' and alu_src = '0'
+        report "AND failed" severity error;
+
+        -- ORI (I-type)
+        instr <= x"00F7E793"; wait for clk_period;
+        assert alu_op = "1001" and reg_write = '1' and alu_src = '1'
+        report "ORI failed" severity error;
+
+        -- SLL (R-type)
+        instr <= x"00F717B3"; wait for clk_period;
+        assert alu_op = "0011" and reg_write = '1' and alu_src = '0'
+        report "SLL failed" severity error;
+
+        -- SRLI (I-type)
+        instr <= x"00F75793"; wait for clk_period;
+        assert alu_op = "0111" and reg_write = '1' and alu_src = '1'
+        report "SRLI failed" severity error;
+
+        -- SRA (R-type)
+        instr <= x"40F757B3"; wait for clk_period;
+        assert alu_op = "1000" and reg_write = '1' and alu_src = '0'
+        report "SRA failed" severity error;
+
+        -- LW (I-type)
+        instr <= x"0007A303"; wait for clk_period;
+        assert alu_op = "0000" and mem_read = '1' and mem_to_reg = '1' and reg_write = '1' and alu_src = '1'
+        report "LW failed" severity error;
+
+        -- SW (S-type)
+        instr <= x"00A32023"; wait for clk_period;
+        assert alu_op = "0000" and mem_write = '1' and alu_src = '1' and reg_write = '0'
+        report "SW failed" severity error;
+
+        -- BEQ (B-type)
+        instr <= x"00A30663"; wait for clk_period;
+        assert alu_op = "0001" and branch = '1' and alu_src = '0'
+        report "BEQ failed" severity error;
+
+        -- JAL (J-type)
+        instr <= x"000000EF"; wait for clk_period;
+        assert jump = '1' and reg_write = '1'
+        report "JAL failed" severity error;
+
+        -- LUI (U-type)
+        instr <= x"000002B7"; wait for clk_period;
+        assert alu_op = "0010" and reg_write = '1'
+        report "LUI failed" severity error;
+
+        report "All decoder tests passed." severity note;
         wait;
     end process;
 end sim;

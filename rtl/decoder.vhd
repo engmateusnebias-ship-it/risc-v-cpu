@@ -4,9 +4,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity decoder is
     Port (
-        opcode     : in  std_logic_vector(6 downto 0);
-        funct3     : in  std_logic_vector(2 downto 0);
-        funct7     : in  std_logic_vector(6 downto 0);
+        instr      : in  std_logic_vector(31 downto 0);
         alu_op     : out std_logic_vector(3 downto 0);
         reg_write  : out std_logic;
         mem_read   : out std_logic;
@@ -19,7 +17,15 @@ entity decoder is
 end decoder;
 
 architecture Behavioral of decoder is
+    signal opcode : std_logic_vector(6 downto 0);
+    signal funct3 : std_logic_vector(2 downto 0);
+    signal funct7 : std_logic_vector(6 downto 0);
 begin
+
+    opcode <= instr(6 downto 0);
+    funct3 <= instr(14 downto 12);
+    funct7 <= instr(31 downto 25);
+
     process(opcode, funct3, funct7)
     begin
         alu_op     <= "0000";
@@ -106,4 +112,5 @@ begin
                 alu_op <= "1111";
         end case;
     end process;
+
 end Behavioral;
