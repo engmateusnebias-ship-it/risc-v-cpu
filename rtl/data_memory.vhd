@@ -2,63 +2,52 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+-- Simple 256-word data RAM with byte write strobes.
+-- Addressing is byte-based; internally word index uses addr[9:2].
 entity data_memory is
     Port (
-        clk         : in  std_logic;
-        mem_read    : in  std_logic;
-        mem_write   : in  std_logic;
-        address     : in  std_logic_vector(31 downto 0);
-        write_data  : in  std_logic_vector(31 downto 0);
-        read_data   : out std_logic_vector(31 downto 0);
-        -- GPIO interface
-        gpio_read_data : in  std_logic_vector(31 downto 0);
-        gpio_out_en    : out std_logic;
-        gpio_in_en     : out std_logic;
-        gpio_addr      : out std_logic_vector(31 downto 0);
-        gpio_write_data: out std_logic_vector(31 downto 0)
+        clk       : in  std_logic;
+        we        : in  std_logic;
+        re        : in  std_logic;
+        addr      : in  std_logic_vector(31 downto 0);
+        wdata     : in  std_logic_vector(31 downto 0);
+        wstrb     : in  std_logic_vector(3 downto 0);
+        rdata     : out std_logic_vector(31 downto 0)
     );
 end data_memory;
 
-architecture Behavioral of data_memory is
+architecture rtl of data_memory is
     type ram_type is array (0 to 255) of std_logic_vector(31 downto 0);
     signal ram : ram_type := (others => (others => '0'));
-    signal addr_index : integer range 0 to 255;
-    signal is_gpio_access : std_logic;
+    signal idx : integer range 0 to 255;
+    signal word_q : std_logic_vector(31 downto 0);
 begin
+    idx <= to_integer(unsigned(addr(9 downto 2)));
 
-    addr_index <= to_integer(unsigned(address(9 downto 2))); -- Word-aligned addressing
-
-    -- Detect GPIO access
-    is_gpio_access <= '1' when (address = x"00000010" or address = x"00000014") else '0';
-
-    -- GPIO control signals
-    gpio_out_en     <= mem_write when address = x"00000010" else '0';
-    gpio_in_en      <= mem_read  when address = x"00000014" else '0';
-    gpio_addr       <= address;
-    gpio_write_data <= write_data;
-
-    -- RAM write
+    -- Synchronous write with byte enables
     process(clk)
+        variable tmp : std_logic_vector(31 downto 0);
     begin
         if rising_edge(clk) then
-            if mem_write = '1' and is_gpio_access = '0' then
-                ram(addr_index) <= write_data;
+            if we = '1' then
+                tmp := ram(idx);
+                if wstrb(0) = '1' then tmp(7 downto 0)   := wdata(7 downto 0); end if;
+                if wstrb(1) = '1' then tmp(15 downto 8)  := wdata(15 downto 8); end if;
+                if wstrb(2) = '1' then tmp(23 downto 16) := wdata(23 downto 16); end if;
+                if wstrb(3) = '1' then tmp(31 downto 24) := wdata(31 downto 24); end if;
+                ram(idx) <= tmp;
             end if;
         end if;
     end process;
 
-    -- RAM/GPIO read
-    process(mem_read, addr_index, is_gpio_access, gpio_read_data, ram)
+    -- Combinational read (single-cycle)
+    -- VHDL-93/VHDL-2002 compatible combinational process (no process(all)).
+    process(re, idx, ram)
     begin
-        if mem_read = '1' then
-            if is_gpio_access = '1' then
-                read_data <= gpio_read_data;
-            else
-                read_data <= ram(addr_index);
-            end if;
+        if re = '1' then
+            rdata <= ram(idx);
         else
-            read_data <= (others => '0');
+            rdata <= (others => '0');
         end if;
     end process;
-
-end Behavioral;
+end rtl;

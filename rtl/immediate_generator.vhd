@@ -18,11 +18,13 @@ begin
 
     process(instr, opcode)
     begin
+        imm <= (others => '0');  -- default initialization
+
         case opcode is
 
             -- I-type (e.g., ADDI, LW, JALR)
             when "0010011" | "0000011" | "1100111" =>
-                imm <= (others => instr(31)); -- sign extension
+                imm <= (others => instr(31));
                 imm(11 downto 0) <= instr(31 downto 20);
 
             -- S-type (e.g., SW)
@@ -34,10 +36,10 @@ begin
             -- B-type (e.g., BEQ, BNE)
             when "1100011" =>
                 imm <= (others => instr(31));
-                imm(10 downto 5)<= instr(30 downto 25);
-                imm(4 downto 1) <= instr(11 downto 8);
-                imm(11)         <= instr(7);
-                imm(0)          <= '0';
+                imm(10 downto 5) <= instr(30 downto 25);
+                imm(4 downto 1)  <= instr(11 downto 8);
+                imm(11)          <= instr(7);
+                imm(0)           <= '0';
 
             -- U-type (e.g., LUI, AUIPC)
             when "0110111" | "0010111" =>
@@ -47,13 +49,12 @@ begin
             -- J-type (e.g., JAL)
             when "1101111" =>
                 imm <= (others => instr(31));
-                imm(20)         <= instr(31);
-                imm(10 downto 1)<= instr(30 downto 21);
-                imm(11)         <= instr(20);
+                imm(20)          <= instr(31);
+                imm(10 downto 1) <= instr(30 downto 21);
+                imm(11)          <= instr(20);
                 imm(19 downto 12)<= instr(19 downto 12);
-                imm(0)          <= '0';
+                imm(0)           <= '0';
 
-            -- Default: zero
             when others =>
                 imm <= (others => '0');
         end case;
@@ -62,3 +63,4 @@ begin
     imm_out <= imm;
 
 end rtl;
+

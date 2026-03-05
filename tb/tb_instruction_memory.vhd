@@ -13,7 +13,6 @@ architecture sim of tb_instruction_memory is
 
     constant clk_period : time := 10 ns;
 
-    -- Converts a std_logic_vector to a hexadecimal string
     function to_hex_string(slv: std_logic_vector) return string is
         variable result : string(1 to slv'length/4);
         variable temp   : std_logic_vector(3 downto 0);
@@ -46,37 +45,21 @@ architecture sim of tb_instruction_memory is
 
 begin
 
-    -- Instantiate the instruction memory
     uut: entity work.instruction_memory
         port map (
             addr        => addr,
             instruction => instruction
         );
 
-    -- Stimulus process
     stim_proc: process
     begin
-        -- Test 1: Read instruction at address 0x00
-        addr <= x"00000000"; wait for clk_period;
-        report "Instruction at 0x00: " & to_hex_string(instruction);
+        for i in 0 to 21 loop  -- 22 instructions in program.mem
+            addr <= std_logic_vector(to_unsigned(i * 4, 32));
+            wait for clk_period;
+            report "Instruction at " & integer'image(i*4) & ": " & to_hex_string(instruction);
+        end loop;
 
-        -- Test 2: Read instruction at address 0x04
-        addr <= x"00000004"; wait for clk_period;
-        report "Instruction at 0x04: " & to_hex_string(instruction);
-
-        -- Test 3: Read instruction at address 0x08
-        addr <= x"00000008"; wait for clk_period;
-        report "Instruction at 0x08: " & to_hex_string(instruction);
-
-        -- Test 4: Read instruction at address 0x0C
-        addr <= x"0000000C"; wait for clk_period;
-        report "Instruction at 0x0C: " & to_hex_string(instruction);
-
-        -- Test 5: Read instruction at address 0x10
-        addr <= x"00000010"; wait for clk_period;
-        report "Instruction at 0x10: " & to_hex_string(instruction);
-
-        report "Instruction memory file load test completed." severity note;
+        report "Instruction memory test completed." severity note;
         wait;
     end process;
 

@@ -5,80 +5,104 @@ use IEEE.NUMERIC_STD.ALL;
 entity tb_data_memory is
 end tb_data_memory;
 
-architecture sim of tb_data_memory is
-    signal clk             : std_logic := '0';
-    signal mem_read        : std_logic;
-    signal mem_write       : std_logic;
-    signal address         : std_logic_vector(31 downto 0);
-    signal write_data      : std_logic_vector(31 downto 0);
-    signal read_data       : std_logic_vector(31 downto 0);
-    signal gpio_read_data  : std_logic_vector(31 downto 0);
-    signal gpio_out_en     : std_logic;
-    signal gpio_in_en      : std_logic;
-    signal gpio_addr       : std_logic_vector(31 downto 0);
-    signal gpio_write_data : std_logic_vector(31 downto 0);
-begin
+architecture tb of tb_data_memory is
+    signal clk   : std_logic := '0';
+    signal we    : std_logic := '0';
+    signal re    : std_logic := '0';
+    signal addr  : std_logic_vector(31 downto 0) := (others => '0');
+    signal wdata : std_logic_vector(31 downto 0) := (others => '0');
+    signal wstrb : std_logic_vector(3 downto 0) := (others => '0');
+    signal rdata : std_logic_vector(31 downto 0);
 
-    uut: entity work.data_memory
+    -- Wait for one rising edge of clk (VHDL-93/2002 compatible)
+    procedure tick(signal c : in std_logic) is
+    begin
+        wait until rising_edge(c);
+    end procedure;
+
+    procedure check(cond : boolean; msg : string) is
+    begin
+        assert cond report msg severity failure;
+    end procedure;
+begin
+    -- Free-running clock
+    clk_gen: process
+    begin
+        clk <= '0'; wait for 5 ns;
+        clk <= '1'; wait for 5 ns;
+    end process;
+
+    dut: entity work.data_memory
         port map (
-            clk             => clk,
-            mem_read        => mem_read,
-            mem_write       => mem_write,
-            address         => address,
-            write_data      => write_data,
-            read_data       => read_data,
-            gpio_read_data  => gpio_read_data,
-            gpio_out_en     => gpio_out_en,
-            gpio_in_en      => gpio_in_en,
-            gpio_addr       => gpio_addr,
-            gpio_write_data => gpio_write_data
+            clk   => clk,
+            we    => we,
+            re    => re,
+            addr  => addr,
+            wdata => wdata,
+            wstrb => wstrb,
+            rdata => rdata
         );
 
-    clk_process: process
+    stim: process
     begin
-        while now < 300 ns loop
-            clk <= '0'; wait for 5 ns;
-            clk <= '1'; wait for 5 ns;
-        end loop;
+        -- Full word write/read
+        addr  <= x"00000000";
+        wdata <= x"11223344";
+        wstrb <= "1111";
+        we    <= '1';
+        re    <= '0';
+        tick(clk);
+        we <= '0';
+
+        re <= '1';
+        wait for 1 ns;
+        check(rdata = x"11223344", "Word readback failed");
+        re <= '0';
+
+        -- Byte write: update byte lane 2 (addr+2)
+        addr  <= x"00000002";
+        wdata <= x"00AA0000"; -- only lane2 used by wstrb(2)
+        wstrb <= "0100";
+        we    <= '1';
+        tick(clk);
+        we    <= '0';
+        wstrb <= "0000";
+
+        -- Read back full word
+        addr <= x"00000000";
+        re   <= '1';
+        wait for 1 ns;
+        check(rdata = x"11AA3344", "Byte write (lane2) failed");
+        re <= '0';
+
+        -- Halfword write: update upper halfword (addr+2)
+        addr  <= x"00000002";
+        wdata <= x"BEEF0000";
+        wstrb <= "1100";
+        we    <= '1';
+        tick(clk);
+        we <= '0';
+
+        addr <= x"00000000";
+        re   <= '1';
+        wait for 1 ns;
+        check(rdata = x"BEEF3344", "Halfword write failed");
+        re <= '0';
+
+        -- No write strobes: must not change memory
+        addr  <= x"00000000";
+        wdata <= x"FFFFFFFF";
+        wstrb <= "0000";
+        we    <= '1';
+        tick(clk);
+        we <= '0';
+
+        re <= '1';
+        wait for 1 ns;
+        check(rdata = x"BEEF3344", "Write with wstrb=0000 should not modify memory");
+        re <= '0';
+
+        report "tb_data_memory: ALL TESTS PASSED" severity note;
         wait;
     end process;
-
-    stim_proc: process
-    begin
-        -- Write to RAM at address 0x00000020
-        mem_read   <= '0';
-        mem_write  <= '1';
-        address    <= x"00000020";
-        write_data <= x"DEADBEEF";
-        wait for 10 ns;
-
-        -- Disable write
-        mem_write <= '0';
-        wait for 10 ns;
-
-        -- Read from RAM at address 0x00000020
-        mem_read <= '1';
-        wait for 10 ns;
-        assert read_data = x"DEADBEEF" report "RAM read failed at 0x20" severity error;
-
-        -- Read from GPIO input (simulate toggle = '1')
-        address         <= x"00000014";
-        gpio_read_data  <= x"00000001";
-        wait for 10 ns;
-        assert read_data = x"00000001" and gpio_in_en = '1'
-        report "GPIO read failed (toggle=1)" severity error;
-
-        -- Write to GPIO output
-        mem_read   <= '0';
-        mem_write  <= '1';
-        address    <= x"00000010";
-        write_data <= x"0000000F";
-        wait for 10 ns;
-        assert gpio_out_en = '1' and gpio_write_data(3 downto 0) = "1111"
-        report "GPIO write failed (LEDs)" severity error;
-
-        report "All data memory + GPIO integration tests passed." severity note;
-        wait;
-    end process;
-
-end sim;
+end tb;
